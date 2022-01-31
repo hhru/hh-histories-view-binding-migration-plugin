@@ -1,18 +1,21 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.pstrelchenko.hhhistoriesviewbindingmigrationplugin</id>
-    <name>hh-histories-view-binding-migration-plugin</name>
-    <vendor>pstrelchenko</vendor>
+    <id>ru.hh.android.synthetic_plugin</id>
+    <name>HH Synthetic</name>
+    <vendor>hh.ru</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>org.jetbrains.kotlin</depends>
+    <depends>org.jetbrains.android</depends>
 
-    <extensions defaultExtensionNs="com.intellij">
-        <applicationService serviceImplementation="com.github.pstrelchenko.hhhistoriesviewbindingmigrationplugin.services.MyApplicationService"/>
-        <projectService serviceImplementation="com.github.pstrelchenko.hhhistoriesviewbindingmigrationplugin.services.MyProjectService"/>
-    </extensions>
+    <actions>
+        <action id="ConvertSyntheticsToViewBinding"
+            class="ru.hh.android.synthetic_plugin.ConvertSyntheticsToViewBindingAction"
+            text="Convert Synthetics to ViewBinding"
+            description="Converts kotlin.synthetics usage to Android ViewBinding">
+            <add-to-group group-id="RefactoringMenu" anchor="last" />
+        </action>
+    </actions>
 
-    <applicationListeners>
-        <listener class="com.github.pstrelchenko.hhhistoriesviewbindingmigrationplugin.listeners.MyProjectManagerListener"
-                  topic="com.intellij.openapi.project.ProjectManagerListener"/>
-    </applicationListeners>
 </idea-plugin>
