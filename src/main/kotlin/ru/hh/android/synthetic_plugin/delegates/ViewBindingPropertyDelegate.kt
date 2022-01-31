@@ -11,8 +11,8 @@ import org.jetbrains.kotlin.psi.getOrCreateBody
 import org.jetbrains.kotlin.resolve.ImportPath
 import ru.hh.android.synthetic_plugin.utils.ClassParentsFinder
 import ru.hh.android.synthetic_plugin.utils.Const
-import ru.hh.android.synthetic_plugin.util.getPackageName
-import ru.hh.android.synthetic_plugin.util.isKotlinSynthetic
+import ru.hh.android.synthetic_plugin.extensions.getPackageName
+import ru.hh.android.synthetic_plugin.extensions.isKotlinSynthetic
 
 /**
  * TODO:
