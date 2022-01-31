@@ -17,6 +17,10 @@ fun localProperties(key: String): String? {
     return null
 }
 
+fun systemProperty(key: String): Provider<String> {
+    return providers.systemProperty(key).forUseAtConfigurationTime()
+}
+
 plugins {
     // Java support
     id("java")
@@ -46,10 +50,9 @@ intellij {
     pluginName.set(properties("pluginName"))
 
     val localPropertiesAndroidStudioPath = localProperties("androidStudioPath")
-    val systemPropertiesAndroidStudioPath = properties("androidStudioPath")
 
     if (localPropertiesAndroidStudioPath.isNullOrBlank()) {
-        localPath.set(systemPropertiesAndroidStudioPath)
+        localPath.set(systemProperty("androidStudioPath").get())
     } else {
         localPath.set(localPropertiesAndroidStudioPath)
     }
@@ -78,7 +81,7 @@ tasks {
     // Setup compiler version for Android Studio
     instrumentCode {
         val androidStudioCompilerVersion = localProperties("androidStudioCompilerVersion")
-            ?: properties("androidStudioCompilerVersion")
+            ?: systemProperty("androidStudioCompilerVersion").get()
 
         compilerVersion.set(androidStudioCompilerVersion)
     }
@@ -146,5 +149,11 @@ tasks {
         // Specify pre-release label to publish the plugin in a custom Release Channel automatically. Read more:
         // https://plugins.jetbrains.com/docs/intellij/deployment.html#specifying-a-release-channel
         channels.set(listOf(properties("pluginVersion").split('-').getOrElse(1) { "default" }.split('.').first()))
+    }
+
+    // Fix for local `buildPlugin` task run
+    // https://intellij-support.jetbrains.com/hc/en-us/community/posts/4404916944658-Getting-call-to-UsageTracker-before-initialization-when-running-buildSearchableOptions
+    buildSearchableOptions {
+        systemProperty("idea.is.internal", "")
     }
 }
