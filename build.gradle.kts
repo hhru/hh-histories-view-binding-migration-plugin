@@ -22,6 +22,9 @@ plugins {
     // Kotlin support
     id("org.jetbrains.kotlin.jvm") version "1.6.10"
     // Gradle IntelliJ Plugin
+    // Use old versions because of some issues in gradle-intellij-plugin
+    // https://github.com/JetBrains/gradle-intellij-plugin/issues/881
+    // https://github.com/JetBrains/gradle-intellij-plugin/issues/884
     id("org.jetbrains.intellij") version "1.1.6"
     // Gradle Changelog Plugin
     id("org.jetbrains.changelog") version "1.3.0"
