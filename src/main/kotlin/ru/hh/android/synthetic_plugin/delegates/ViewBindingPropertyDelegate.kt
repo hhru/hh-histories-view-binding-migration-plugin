@@ -61,6 +61,9 @@ class ViewBindingPropertyDelegate(
     }
 
     fun addViewBindingProperty() {
+        // `as Array<PsiClass` is necessary because of MISSING_DEPENDENCY_CLASS error from Kotlin Gradle plugin
+        // https://youtrack.jetbrains.com/issue/KTIJ-19485
+        // https://youtrack.jetbrains.com/issue/KTIJ-10861
         val classes = (file.getClasses() as Array<PsiClass>).mapNotNull { psiClass ->
             val ktClass = ((psiClass as? KtLightElement<*, *>)?.kotlinOrigin as? KtClass)
             if (ktClass == null) {
