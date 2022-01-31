@@ -20,6 +20,11 @@ on:
   # Trigger the workflow on any pull request
   pull_request:
 
+env:
+  # Link for Linux zip file from https://developer.android.com/studio/archive
+  ANDROID_STUDIO_URL: https://redirector.gvt1.com/edgedl/android/studio/ide-zips/2020.3.1.25/android-studio-2020.3.1.25-linux.tar.gz
+  COMPILER_VERSION: 203.7717.56
+
 jobs:
 
   # Run Gradle Wrapper Validation Action to verify the wrapper's checksum
@@ -36,6 +41,11 @@ jobs:
       # Check out current repository
       - name: Fetch Sources
         uses: actions/checkout@v2.4.0
+
+      - name: Download Android Studio
+        run: |
+          wget -q $ANDROID_STUDIO_URL
+          tar -xf android-studio-2020.3.1.25-linux.tar.gz -C ./
 
       # Validate wrapper
       - name: Gradle Wrapper Validation
@@ -67,7 +77,7 @@ jobs:
           echo "::set-output name=changelog::$CHANGELOG"
           echo "::set-output name=pluginVerifierHomeDir::~/.pluginVerifier"
 
-          ./gradlew listProductsReleases # prepare list of IDEs for Plugin Verifier
+          ./gradlew listProductsReleases -DandroidStudioPath="$(pwd)/android-studio" -DandroidStudioCompilerVersion="$COMPILER_VERSION" # prepare list of IDEs for Plugin Verifier
 
       # Run tests
       - name: Run Tests
@@ -90,7 +100,7 @@ jobs:
 
       # Run Verify Plugin task and IntelliJ Plugin Verifier tool
       - name: Run Plugin Verification tasks
-        run: ./gradlew runPluginVerifier -Pplugin.verifier.home.dir=${{ steps.properties.outputs.pluginVerifierHomeDir }}
+        run: ./gradlew runPluginVerifier -DandroidStudioPath="$(pwd)/android-studio" -DandroidStudioCompilerVersion="$COMPILER_VERSION"  -Pplugin.verifier.home.dir=${{ steps.properties.outputs.pluginVerifierHomeDir }}
 
       # Collect Plugin Verifier Result
       - name: Collect Plugin Verifier Result
