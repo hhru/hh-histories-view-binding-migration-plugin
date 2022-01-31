@@ -75,7 +75,7 @@ jobs:
           echo "::set-output name=changelog::$CHANGELOG"
           echo "::set-output name=pluginVerifierHomeDir::~/.pluginVerifier"
 
-          ./gradlew listProductsReleases -DandroidStudioPath="$(pwd)/android-studio" -DandroidStudioCompilerVersion="$COMPILER_VERSION" # prepare list of IDEs for Plugin Verifier
+          ./gradlew listProductsReleases -PandroidStudioPath="$(pwd)/android-studio" -PandroidStudioCompilerVersion="$COMPILER_VERSION" # prepare list of IDEs for Plugin Verifier
 
       # Run tests
       - name: Run Tests
@@ -98,7 +98,7 @@ jobs:
 
       # Run Verify Plugin task and IntelliJ Plugin Verifier tool
       - name: Run Plugin Verification tasks
-        run: ./gradlew runPluginVerifier -DandroidStudioPath="$(pwd)/android-studio" -DandroidStudioCompilerVersion="$COMPILER_VERSION"  -Pplugin.verifier.home.dir=${{ steps.properties.outputs.pluginVerifierHomeDir }}
+        run: ./gradlew runPluginVerifier -PandroidStudioPath="$(pwd)/android-studio" -PandroidStudioCompilerVersion="$COMPILER_VERSION"  -Pplugin.verifier.home.dir=${{ steps.properties.outputs.pluginVerifierHomeDir }}
 
       # Collect Plugin Verifier Result
       - name: Collect Plugin Verifier Result

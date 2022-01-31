@@ -17,11 +17,6 @@ fun localProperties(key: String): String? {
     return null
 }
 
-@Suppress("UnstableApiUsage")
-fun systemProperty(name: String): Provider<String> {
-    return providers.systemProperty(name).forUseAtConfigurationTime()
-}
-
 plugins {
     // Java support
     id("java")
@@ -51,10 +46,10 @@ intellij {
     pluginName.set(properties("pluginName"))
 
     val localPropertiesAndroidStudioPath = localProperties("androidStudioPath")
-    val systemPropertiesAndroidStudioPath = systemProperty("androidStudioPath")
+    val systemPropertiesAndroidStudioPath = properties("androidStudioPath")
 
     if (localPropertiesAndroidStudioPath.isNullOrBlank()) {
-        localPath.set(systemPropertiesAndroidStudioPath.get())
+        localPath.set(systemPropertiesAndroidStudioPath)
     } else {
         localPath.set(localPropertiesAndroidStudioPath)
     }
@@ -83,7 +78,7 @@ tasks {
     // Setup compiler version for Android Studio
     instrumentCode {
         val androidStudioCompilerVersion = localProperties("androidStudioCompilerVersion")
-            ?: systemProperty("androidStudioCompilerVersion").get()
+            ?: properties("androidStudioCompilerVersion")
 
         compilerVersion.set(androidStudioCompilerVersion)
     }
