@@ -1,7 +1,20 @@
 import org.jetbrains.changelog.markdownToHTML
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.util.Properties
 
 fun properties(key: String) = project.findProperty(key).toString()
+
+fun localProperties(key: String): String? {
+    val properties = Properties().apply {
+        load(project.rootProject.file("local.properties").inputStream())
+    }
+    return properties.getProperty(key)
+}
+
+@Suppress("UnstableApiUsage")
+fun systemProperty(name: String): Provider<String> {
+    return providers.systemProperty(name).forUseAtConfigurationTime()
+}
 
 plugins {
     // Java support
@@ -9,11 +22,11 @@ plugins {
     // Kotlin support
     id("org.jetbrains.kotlin.jvm") version "1.6.10"
     // Gradle IntelliJ Plugin
-    id("org.jetbrains.intellij") version "1.3.1"
+    id("org.jetbrains.intellij") version "1.1.6"
     // Gradle Changelog Plugin
-    id("org.jetbrains.changelog") version "1.3.1"
+    id("org.jetbrains.changelog") version "1.3.0"
     // Gradle Qodana Plugin
-    id("org.jetbrains.qodana") version "0.1.13"
+    id("org.jetbrains.qodana") version "0.1.12"
 }
 
 group = properties("pluginGroup")
@@ -27,7 +40,16 @@ repositories {
 // Configure Gradle IntelliJ Plugin - read more: https://github.com/JetBrains/gradle-intellij-plugin
 intellij {
     pluginName.set(properties("pluginName"))
-    version.set(properties("platformVersion"))
+
+    val localPropertiesAndroidStudioPath = localProperties("androidStudioPath")
+    val systemPropertiesAndroidStudioPath = systemProperty("androidStudioPath")
+
+    if (localPropertiesAndroidStudioPath.isNullOrBlank()) {
+        localPath.set(systemPropertiesAndroidStudioPath.get())
+    } else {
+        localPath.set(localPropertiesAndroidStudioPath)
+    }
+
     type.set(properties("platformType"))
 
     // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file.
@@ -49,6 +71,14 @@ qodana {
 }
 
 tasks {
+    // Setup compiler version for Android Studio
+    instrumentCode {
+        val androidStudioCompilerVersion = localProperties("androidStudioCompilerVersion")
+            ?: systemProperty("androidStudioCompilerVersion").get()
+
+        compilerVersion.set(androidStudioCompilerVersion)
+    }
+
     // Set the JVM compatibility versions
     properties("javaVersion").let {
         withType<JavaCompile> {
