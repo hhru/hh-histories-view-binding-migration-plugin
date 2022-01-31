@@ -5,10 +5,16 @@ import java.util.Properties
 fun properties(key: String) = project.findProperty(key).toString()
 
 fun localProperties(key: String): String? {
-    val properties = Properties().apply {
-        load(project.rootProject.file("local.properties").inputStream())
+    val localPropertiesFile = project.rootProject.file("local.properties")
+
+    if (localPropertiesFile.exists()) {
+        val properties = Properties().apply {
+            load(localPropertiesFile.inputStream())
+        }
+        return properties.getProperty(key)
     }
-    return properties.getProperty(key)
+
+    return null
 }
 
 @Suppress("UnstableApiUsage")
