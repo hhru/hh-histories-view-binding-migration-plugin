@@ -20,6 +20,7 @@ object ConvertKtFileDelegate {
         project: Project,
         androidFacet: AndroidFacet?,
         psiFactory: KtPsiFactory = KtPsiFactory(project),
+        isUsingViewBindingPropertyDelegate: Boolean = false,
     ) {
         val xmlRefsVisitor = AndroidViewXmlSyntheticsRefsVisitor()
         val importsVisitor = SyntheticsImportsVisitor()
@@ -27,17 +28,38 @@ object ConvertKtFileDelegate {
         file.accept(importsVisitor)
         val xmlViewRefs = xmlRefsVisitor.getResult()
         val syntheticImports = importsVisitor.getResult()
-
-        ViewBindingPropertyDelegate(psiFactory, file, androidFacet).addViewBindingProperty()
-        replaceSynthCallsToViews(psiFactory, xmlViewRefs)
+        val viewBindingPropertyDelegate = ViewBindingPropertyDelegate(
+            psiFactory = psiFactory,
+            file = file,
+            androidFacet = androidFacet,
+            isUsingViewBindingPropertyDelegate = isUsingViewBindingPropertyDelegate,
+            project = project,
+        )
+        viewBindingPropertyDelegate.addViewBindingProperties()
+        replaceSynthCallsToViews(
+            psiFactory = psiFactory,
+            xmlViewRefs = xmlViewRefs,
+            viewBindingProperties = viewBindingPropertyDelegate.viewBindingProperties,
+            isMultipleBindingInFile = viewBindingPropertyDelegate.isMultipleBindingInFile,
+        )
         removeKotlinxSyntheticsImports(syntheticImports)
 
         println("Converted synthetics to view binding for ${file.name} successfully")
     }
 
-    private fun replaceSynthCallsToViews(psiFactory: KtPsiFactory, xmlViewRefs: List<AndroidViewContainer>) {
+    private fun replaceSynthCallsToViews(
+        psiFactory: KtPsiFactory,
+        xmlViewRefs: List<AndroidViewContainer>,
+        viewBindingProperties: List<KtImportDirective>,
+        isMultipleBindingInFile: Boolean,
+    ) {
         xmlViewRefs.forEach { refContainer ->
-            val newElement = psiFactory.createArgument(refContainer.getElementName())
+            val newElement = psiFactory.createArgument(
+                refContainer.getElementName(
+                    viewBindingProperties = viewBindingProperties,
+                    isMultipleBindingInFile = isMultipleBindingInFile,
+                )
+            )
 
             when (refContainer) {
                 is AndroidViewContainer.KtRefExp -> {

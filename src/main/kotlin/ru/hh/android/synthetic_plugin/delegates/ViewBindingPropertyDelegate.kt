@@ -1,24 +1,23 @@
 package ru.hh.android.synthetic_plugin.delegates
 
-import android.databinding.tool.ext.toCamelCase
+import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiClass
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiParserFacade
+import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.codeStyle.CodeStyleManager
 import org.jetbrains.android.facet.AndroidFacet
 import org.jetbrains.kotlin.asJava.elements.KtLightElement
-import org.jetbrains.kotlin.psi.KtClass
-import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.psi.KtPsiFactory
-import org.jetbrains.kotlin.psi.getOrCreateBody
+import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.ImportPath
+import ru.hh.android.synthetic_plugin.extensions.*
 import ru.hh.android.synthetic_plugin.utils.ClassParentsFinder
 import ru.hh.android.synthetic_plugin.utils.Const
-import ru.hh.android.synthetic_plugin.extensions.getPackageName
-import ru.hh.android.synthetic_plugin.extensions.isKotlinSynthetic
+import ru.hh.android.synthetic_plugin.utils.Const.ON_DESTROY_FUNC_DECLARATION
+
 
 /**
  * TODO:
- *
- * - [ ] It would be nice to place generated property after companion objects inside Fragments
- * and Views (if we have one). Also we should add [newLine] before generated property declaration.
  *
  * - [ ] For Cells we should handle case when there is no `with(viewHolder.itemView)` block
  * (case with direct invocation of `viewHolder.itemView.view_id`)
@@ -26,10 +25,13 @@ import ru.hh.android.synthetic_plugin.extensions.isKotlinSynthetic
 class ViewBindingPropertyDelegate(
     private val psiFactory: KtPsiFactory,
     private val file: KtFile,
-    androidFacet: AndroidFacet?,
+    private val androidFacet: AndroidFacet?,
+    private val isUsingViewBindingPropertyDelegate: Boolean,
+    private val project: Project,
 ) {
 
     private companion object {
+        const val ANDROID_ACTIVITY_CLASS = "android.app.Activity"
         const val ANDROID_FRAGMENT_CLASS = "androidx.fragment.app.Fragment"
         const val ANDROID_VIEW_CLASS = "android.view.View"
 
@@ -44,23 +46,53 @@ class ViewBindingPropertyDelegate(
         const val HH_IMPORT_CELLS_GET_VIEW_BINDING_FUN = "ru.hh.shared.core.ui.cells_framework.cells.getViewBinding"
     }
 
-    private val bindingClassName = run {
-        val synthImport = file.importDirectives.first { it.importPath?.pathStr.isKotlinSynthetic() }
-        val synthImportStr = synthImport.importPath?.pathStr.orEmpty()
-            .removeSuffix(".*").removeSuffix(".view")
-        synthImportStr
-            .drop(synthImportStr.lastIndexOf('.') + 1)
-            .toCamelCase()
-            .capitalize()
-            .plus("Binding")
+    private var importDirectories: Set<String> = setOf()
+
+    val viewBindingProperties = getSyntheticImportDirectives()
+
+    val isMultipleBindingInFile get() = importDirectories.size > 1
+
+    /**
+     * Left for single case - HH cell processing
+     */
+    private val bindingClassName = importDirectories.firstOrNull()
+
+    /**
+     * Support for multiple binding in single .kt file
+     */
+    private fun getFormattedSyntheticImportDirectives(): Set<String> {
+        val result = getSyntheticImportDirectives()
+            .map { it.toFormattedDirective() }
+
+        // Remove nested view imports, leave only root layouts
+        val filteredResult = mutableListOf<String>()
+        result.forEach { filteredResult.add(it.toFormattedBindingName()) }
+
+        return filteredResult.toSet()
     }
 
-    private val bindingQualifiedClassName = run {
-        val packageName = "${androidFacet?.getPackageName().orEmpty()}.databinding."
-        "${packageName}${bindingClassName}"
+    /**
+     * Return non-formatted list of import synthetic directories
+     */
+    private fun getSyntheticImportDirectives(): List<KtImportDirective> {
+        return file.importDirectives
+            .filter {
+                it.importPath?.pathStr.isKotlinSynthetic()
+            }
     }
 
-    fun addViewBindingProperty() {
+    private fun getBindingQualifiedClassNames(): MutableList<String> {
+        val result = mutableListOf<String>()
+        getFormattedSyntheticImportDirectives().forEach { bindingClassName ->
+            val packageName = "${androidFacet?.getPackageName().orEmpty()}.databinding.$bindingClassName"
+            result.add(packageName)
+        }
+        return result
+    }
+
+    fun addViewBindingProperties() {
+        importDirectories = getFormattedSyntheticImportDirectives()
+
         // `as Array<PsiClass` is necessary because of MISSING_DEPENDENCY_CLASS error from Kotlin Gradle plugin
         // https://youtrack.jetbrains.com/issue/KTIJ-19485
         // https://youtrack.jetbrains.com/issue/KTIJ-10861
@@ -75,27 +107,68 @@ class ViewBindingPropertyDelegate(
         classes.forEach { (psiClass, ktClass) ->
             val parents = ClassParentsFinder(psiClass)
             when {
+                parents.isChildOf(ANDROID_ACTIVITY_CLASS) -> processActivity(ktClass)
                 parents.isChildOf(ANDROID_FRAGMENT_CLASS) -> processFragment(ktClass)
                 parents.isChildOf(ANDROID_VIEW_CLASS) -> processView(ktClass)
                 parents.isChildOf(HH_CELL_INTERFACE) -> processCell(ktClass)
                 else -> println("Can't add ViewBinding property to class: ${psiClass.qualifiedName}")
             }
-            addImports(bindingQualifiedClassName)
+            addImports(*getBindingQualifiedClassNames().toTypedArray())
+            formatCode(ktClass)
+        }
+    }
+
+    private fun processActivity(ktClass: KtClass) {
+        if (isUsingViewBindingPropertyDelegate) {
+            val body = ktClass.getOrCreateBody()
+            importDirectories.forEach { bindingClassName ->
+                val text = bindingClassName.toDelegatePropertyFormat(isMultipleBindingInFile)
+                val viewBindingDeclaration = psiFactory.createProperty(text)
+
+                tryToAddAfterCompanionObject(body, viewBindingDeclaration)
+
+                addImports(
+                    HH_IMPORT_BINDING_PLUGIN,
+                )
+            }
+        } else {
+            val body = ktClass.getOrCreateBody()
+            importDirectories.forEach { bindingClassName ->
+                val text = bindingClassName.toActivityPropertyFormat(isMultipleBindingInFile)
+                val viewBindingDeclaration = psiFactory.createProperty(text)
+
+                tryToAddAfterCompanionObject(body, viewBindingDeclaration)
+            }
         }
     }
 
     private fun processFragment(ktClass: KtClass) {
-        val text =
-            "private val binding by viewBindingPlugin($bindingClassName::bind)"
-        val viewBindingDeclaration = psiFactory.createProperty(text)
-        val body = ktClass.getOrCreateBody()
+        if (isUsingViewBindingPropertyDelegate) {
+            val body = ktClass.getOrCreateBody()
+            importDirectories.forEach { bindingClassName ->
+                val text = bindingClassName.toDelegatePropertyFormat(isMultipleBindingInFile)
+                val viewBindingDeclaration = psiFactory.createProperty(text)
 
-        // It would be nice to place generated property after companion objects inside Fragments
-        // and Views (if we have one). Also we should add [newLine] before generated property declaration.
-        body.addAfter(viewBindingDeclaration, body.lBrace)
-        addImports(
-            HH_IMPORT_BINDING_PLUGIN,
-        )
+                tryToAddAfterCompanionObject(body, viewBindingDeclaration)
+
+                addImports(
+                    HH_IMPORT_BINDING_PLUGIN,
+                )
+            }
+        } else {
+            val body = ktClass.getOrCreateBody()
+            importDirectories.forEach { bindingClassName ->
+                val mutablePropertyText = bindingClassName.toMutablePropertyFormat(isMultipleBindingInFile)
+                val immutablePropertyText = bindingClassName.toImmutablePropertyFormat(isMultipleBindingInFile)
+                val mutableViewBinding = psiFactory.createProperty(mutablePropertyText)
+                val immutableViewBinding = psiFactory.createProperty(immutablePropertyText)
+
+                tryToAddAfterCompanionObject(body, mutableViewBinding, immutableViewBinding)
+
+                addBindingInitializationForFragment(body, bindingClassName)
+                addBindingDisposingForFragment(body, bindingClassName)
+            }
+        }
     }
 
     private fun processView(ktClass: KtClass) {
@@ -103,15 +176,27 @@ class ViewBindingPropertyDelegate(
         val inflateViewExpression = body.anonymousInitializers.getOrNull(0)
             ?.body?.children?.firstOrNull { it.text.contains("inflateView") }
         inflateViewExpression?.delete()
-        val text = "private val binding = inflateAndBindView($bindingClassName::inflate)"
-        val viewBindingDeclaration = psiFactory.createProperty(text)
 
-        // It would be nice to place generated property after companion objects inside Fragments
-        // and Views (if we have one). Also we should add [newLine] before generated property declaration.
-        body.addAfter(viewBindingDeclaration, body.lBrace)
-        addImports(
-            HH_IMPORT_INFLATE_AND_BIND_FUN,
-        )
+        if (isUsingViewBindingPropertyDelegate) {
+            importDirectories.forEach { bindingClassName ->
+                val text = bindingClassName.toViewDelegatePropertyFormat(isMultipleBindingInFile)
+                val viewBindingDeclaration = psiFactory.createProperty(text)
+
+                tryToAddAfterCompanionObject(body, viewBindingDeclaration)
+
+                addImports(
+                    HH_IMPORT_INFLATE_AND_BIND_FUN,
+                )
+            }
+        } else {
+            // TODO("Need to do manually initialization or use ViewBindingPropertyDelegate")
+            importDirectories.forEach { bindingClassName ->
+                val text = bindingClassName.toMutablePropertyFormat(isMultipleBindingInFile)
+                val viewBindingDeclaration = psiFactory.createProperty(text)
+
+                tryToAddAfterCompanionObject(body, viewBindingDeclaration)
+            }
+        }
     }
 
     private fun processCell(ktClass: KtClass) {
@@ -135,9 +220,96 @@ class ViewBindingPropertyDelegate(
             imports.forEach { import ->
                 val importPath = ImportPath.fromString(import)
                 val importDirective = psiFactory.createImportDirective(importPath)
-                importList.add(psiFactory.createNewLine())
+                importList.add(getNewLine())
                 importList.add(importDirective)
             }
         }
+    }
+
+    /**
+     * Try to add binding declarations after last companion object (if we have one)
+     */
+    private fun tryToAddAfterCompanionObject(
+        body: KtClassBody,
+        vararg properties: KtProperty,
+    ) {
+        if (body.allCompanionObjects.isNotEmpty()) {
+            val lastCompanionObject = body.allCompanionObjects.last()
+            val nextPsiElement = findNextNonWhitespaceElement(objectDeclaration = lastCompanionObject)
+            properties.forEach {
+                lastCompanionObject.body?.addBefore(it, nextPsiElement)
+            }
+        } else {
+            properties.forEach {
+                body.addAfter(it, body.lBrace)
+            }
+        }
+    }
+
+    private fun addBindingInitializationForFragment(
+        body: KtClassBody,
+        bindingClassName: String,
+    ) {
+        body.functions.find { it.name == "onCreateView" }?.let {
+            val text = bindingClassName.toFragmentInitializationFormat(isMultipleBindingInFile)
+            val viewBindingDeclaration = psiFactory.createExpression(text)
+            viewBindingDeclaration.add(getNewLine())
+            it.addAfter(viewBindingDeclaration, it.bodyBlockExpression?.lBrace)
+        }
+    }
+
+    private fun addBindingDisposingForFragment(
+        body: KtClassBody,
+        bindingClassName: String,
+    ) {
+        var onDestroyViewFunc = body.functions.find { it.name == "onDestroyView" }
+
+        // Create onDestroyView() fun if we don't have
+        if (onDestroyViewFunc == null) {
+            val newOnDestroyViewFunc = psiFactory.createFunction(ON_DESTROY_FUNC_DECLARATION)
+            body.addBefore(newOnDestroyViewFunc, body.rBrace)
+        }
+        onDestroyViewFunc = body.functions.find { it.name == "onDestroyView" }
+
+        onDestroyViewFunc?.let {
+            val text = bindingClassName.toFragmentDisposingFormat(isMultipleBindingInFile)
+            val viewBindingDeclaration = psiFactory.createExpression(text)
+            viewBindingDeclaration.add(getNewLine())
+            it.addAfter(viewBindingDeclaration, it.bodyBlockExpression?.lBrace)
+        }
+    }
+
+    /**
+     * Trick to add binding elements properly formatted
+     */
+    private fun findNextNonWhitespaceElement(
+        objectDeclaration: KtObjectDeclaration? = null,
+        expression: PsiElement? = null,
+    ): PsiElement? {
+        var nextPsiElement: PsiElement? = objectDeclaration?.nextSibling ?: expression?.nextSibling
+        do {
+            if (nextPsiElement is PsiWhiteSpace) {
+                nextPsiElement = nextPsiElement.nextSibling
+                continue
+            }
+            return nextPsiElement
+        } while (true)
+    }
+
+    /**
+     * Format code after changes
+     */
+    private fun formatCode(ktClass: KtClass) {
+        val codeStyleManager: CodeStyleManager = CodeStyleManager.getInstance(project)
+        codeStyleManager.reformat(ktClass)
+    }
+
+    /**
+     * New line for imports because psiFactory.createNewLine()
+     * generates leading whitespace
+     */
+    private fun getNewLine(): PsiElement {
+        val parserFacade = PsiParserFacade.SERVICE.getInstance(project)
+        return parserFacade.createWhiteSpaceFromText("\n")
     }
 }

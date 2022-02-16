@@ -19,11 +19,8 @@ import ru.hh.android.synthetic_plugin.extensions.androidFacet
  *
  * - [ ] Remove `id("kotlin-android-extensions")` from `plugins` block in `build.gradle` file
  * - [ ] Add `android.buildFeatures.viewBinding = true` line into `build.gradle`
- *
- * ## Limitations
- * - If you have several imports with synthetics, this Action will not work.
  */
-class ConvertSyntheticsToViewBindingAction : AnAction() {
+class ConvertSyntheticsToViewBindingPropertyDelegateAction : AnAction() {
 
     private companion object {
         const val COMMAND_NAME = "ConvertSyntheticsToViewBindingCommand"
@@ -49,7 +46,12 @@ class ConvertSyntheticsToViewBindingAction : AnAction() {
         PsiDocumentManager.getInstance(project).commitAllDocuments()
 
         project.executeWriteCommand(COMMAND_NAME) {
-            ConvertKtFileDelegate.perform(file, project, e.androidFacet())
+            ConvertKtFileDelegate.perform(
+                file,
+                project,
+                e.androidFacet(),
+                isUsingViewBindingPropertyDelegate = true,
+            )
         }
 
         println("ConvertSyntheticsToViewBindingAction finished successfully")
