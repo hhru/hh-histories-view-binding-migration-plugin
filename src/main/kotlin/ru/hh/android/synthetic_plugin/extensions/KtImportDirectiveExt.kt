@@ -1,7 +1,7 @@
 package ru.hh.android.synthetic_plugin.extensions
 
 import org.jetbrains.kotlin.psi.KtImportDirective
-import ru.hh.android.synthetic_plugin.utils.Const.CONST_SYNTHETIC_IMPORT_LENGTH
+import ru.hh.android.synthetic_plugin.utils.Const.KOTLINX_SYNTHETIC
 
 /**
  * Returns in format "layout_name.viewName"
@@ -11,7 +11,7 @@ fun KtImportDirective.toFormattedDirective(): String {
         .orEmpty()
         .removeSuffix(".*")
         .removeSuffix(".view")
-        .drop(CONST_SYNTHETIC_IMPORT_LENGTH)
+        .removePrefix(KOTLINX_SYNTHETIC)
 }
 
 /**

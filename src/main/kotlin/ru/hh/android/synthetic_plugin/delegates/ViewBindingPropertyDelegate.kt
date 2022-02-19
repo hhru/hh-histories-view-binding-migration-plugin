@@ -46,53 +46,30 @@ class ViewBindingPropertyDelegate(
         const val HH_IMPORT_CELLS_GET_VIEW_BINDING_FUN = "ru.hh.shared.core.ui.cells_framework.cells.getViewBinding"
     }
 
-    private var importDirectories: Set<String> = setOf()
-
-    val viewBindingProperties = getSyntheticImportDirectives()
-
-    val isMultipleBindingInFile get() = importDirectories.size > 1
-
     /**
-     * Left for single case - HH cell processing
+     * Return non-formatted list of import synthetic directories
      */
-    private val bindingClassName = importDirectories.firstOrNull()
+    val syntheticImportDirectives = file.importDirectives.filter { it.importPath?.pathStr.isKotlinSynthetic() }
 
     /**
      * Support for multiple binding in single .kt file
      */
-    private fun getFormattedSyntheticImportDirectives(): Set<String> {
-        val result = getSyntheticImportDirectives()
-            .map { it.toFormattedDirective() }
+    private val importDirectives = syntheticImportDirectives.map { it.toFormattedDirective().toFormattedBindingName() }.toSet()
 
-        // Remove nested view imports, leave only root layouts
-        val filteredResult = mutableListOf<String>()
-        result.forEach { filteredResult.add(it.toFormattedBindingName()) }
-
-        return filteredResult.toSet()
-    }
+    val hasMultipleBindingsInFile = importDirectives.size > 1
 
     /**
-     * Return non-formatted list of import synthetic directories
+     * Left for single case - HH cell processing
      */
-    private fun getSyntheticImportDirectives(): List<KtImportDirective> {
-        return file.importDirectives
-            .filter {
-                it.importPath?.pathStr.isKotlinSynthetic()
-            }
-    }
+    private val bindingClassName = importDirectives.firstOrNull()
 
-    private fun getBindingQualifiedClassNames(): MutableList<String> {
-        val result = mutableListOf<String>()
-        getFormattedSyntheticImportDirectives().forEach { bindingClassName ->
-            val packageName = "${androidFacet?.getPackageName().orEmpty()}.databinding.$bindingClassName"
-            result.add(packageName)
+    private val bindingQualifiedClassNames = run {
+        importDirectives.map { bindingClassName ->
+            "${androidFacet?.getPackageName().orEmpty()}.databinding.$bindingClassName"
         }
-        return result
     }
 
     fun addViewBindingProperties() {
-        importDirectories = getFormattedSyntheticImportDirectives()
-
         // `as Array<PsiClass` is necessary because of MISSING_DEPENDENCY_CLASS error from Kotlin Gradle plugin
         // https://youtrack.jetbrains.com/issue/KTIJ-19485
         // https://youtrack.jetbrains.com/issue/KTIJ-10861
@@ -113,7 +90,7 @@ class ViewBindingPropertyDelegate(
                 parents.isChildOf(HH_CELL_INTERFACE) -> processCell(ktClass)
                 else -> println("Can't add ViewBinding property to class: ${psiClass.qualifiedName}")
             }
-            addImports(*getBindingQualifiedClassNames().toTypedArray())
+            addImports(*bindingQualifiedClassNames.toTypedArray())
             formatCode(ktClass)
         }
     }
@@ -121,8 +98,8 @@ class ViewBindingPropertyDelegate(
     private fun processActivity(ktClass: KtClass) {
         if (isUsingViewBindingPropertyDelegate) {
             val body = ktClass.getOrCreateBody()
-            importDirectories.forEach { bindingClassName ->
-                val text = bindingClassName.toDelegatePropertyFormat(isMultipleBindingInFile)
+            importDirectives.forEach { bindingClassName ->
+                val text = bindingClassName.toDelegatePropertyFormat(hasMultipleBindingsInFile)
                 val viewBindingDeclaration = psiFactory.createProperty(text)
 
                 tryToAddAfterCompanionObject(body, viewBindingDeclaration)
@@ -133,8 +110,8 @@ class ViewBindingPropertyDelegate(
             }
         } else {
             val body = ktClass.getOrCreateBody()
-            importDirectories.forEach { bindingClassName ->
-                val text = bindingClassName.toActivityPropertyFormat(isMultipleBindingInFile)
+            importDirectives.forEach { bindingClassName ->
+                val text = bindingClassName.toActivityPropertyFormat(hasMultipleBindingsInFile)
                 val viewBindingDeclaration = psiFactory.createProperty(text)
 
                 tryToAddAfterCompanionObject(body, viewBindingDeclaration)
@@ -145,8 +122,8 @@ class ViewBindingPropertyDelegate(
     private fun processFragment(ktClass: KtClass) {
         if (isUsingViewBindingPropertyDelegate) {
             val body = ktClass.getOrCreateBody()
-            importDirectories.forEach { bindingClassName ->
-                val text = bindingClassName.toDelegatePropertyFormat(isMultipleBindingInFile)
+            importDirectives.forEach { bindingClassName ->
+                val text = bindingClassName.toDelegatePropertyFormat(hasMultipleBindingsInFile)
                 val viewBindingDeclaration = psiFactory.createProperty(text)
 
                 tryToAddAfterCompanionObject(body, viewBindingDeclaration)
@@ -157,9 +134,9 @@ class ViewBindingPropertyDelegate(
             }
         } else {
             val body = ktClass.getOrCreateBody()
-            importDirectories.forEach { bindingClassName ->
-                val mutablePropertyText = bindingClassName.toMutablePropertyFormat(isMultipleBindingInFile)
-                val immutablePropertyText = bindingClassName.toImmutablePropertyFormat(isMultipleBindingInFile)
+            importDirectives.forEach { bindingClassName ->
+                val mutablePropertyText = bindingClassName.toMutablePropertyFormat(hasMultipleBindingsInFile)
+                val immutablePropertyText = bindingClassName.toImmutablePropertyFormat(hasMultipleBindingsInFile)
                 val mutableViewBinding = psiFactory.createProperty(mutablePropertyText)
                 val immutableViewBinding = psiFactory.createProperty(immutablePropertyText)
 
@@ -178,8 +155,8 @@ class ViewBindingPropertyDelegate(
         inflateViewExpression?.delete()
 
         if (isUsingViewBindingPropertyDelegate) {
-            importDirectories.forEach { bindingClassName ->
-                val text = bindingClassName.toViewDelegatePropertyFormat(isMultipleBindingInFile)
+            importDirectives.forEach { bindingClassName ->
+                val text = bindingClassName.toViewDelegatePropertyFormat(hasMultipleBindingsInFile)
                 val viewBindingDeclaration = psiFactory.createProperty(text)
 
                 tryToAddAfterCompanionObject(body, viewBindingDeclaration)
@@ -190,8 +167,8 @@ class ViewBindingPropertyDelegate(
             }
         } else {
             // TODO("Need to do manually initialization or use ViewBindingPropertyDelegate")
-            importDirectories.forEach { bindingClassName ->
-                val text = bindingClassName.toMutablePropertyFormat(isMultipleBindingInFile)
+            importDirectives.forEach { bindingClassName ->
+                val text = bindingClassName.toMutablePropertyFormat(hasMultipleBindingsInFile)
                 val viewBindingDeclaration = psiFactory.createProperty(text)
 
                 tryToAddAfterCompanionObject(body, viewBindingDeclaration)
@@ -251,7 +228,7 @@ class ViewBindingPropertyDelegate(
         bindingClassName: String,
     ) {
         body.functions.find { it.name == "onCreateView" }?.let {
-            val text = bindingClassName.toFragmentInitializationFormat(isMultipleBindingInFile)
+            val text = bindingClassName.toFragmentInitializationFormat(hasMultipleBindingsInFile)
             val viewBindingDeclaration = psiFactory.createExpression(text)
             viewBindingDeclaration.add(getNewLine())
             it.addAfter(viewBindingDeclaration, it.bodyBlockExpression?.lBrace)
@@ -272,7 +249,7 @@ class ViewBindingPropertyDelegate(
         onDestroyViewFunc = body.functions.find { it.name == "onDestroyView" }
 
         onDestroyViewFunc?.let {
-            val text = bindingClassName.toFragmentDisposingFormat(isMultipleBindingInFile)
+            val text = bindingClassName.toFragmentDisposingFormat(hasMultipleBindingsInFile)
             val viewBindingDeclaration = psiFactory.createExpression(text)
             viewBindingDeclaration.add(getNewLine())
             it.addAfter(viewBindingDeclaration, it.bodyBlockExpression?.lBrace)

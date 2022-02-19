@@ -35,7 +35,7 @@ sealed class AndroidViewContainer {
      */
     fun getElementName(
         viewBindingProperties: List<KtImportDirective>,
-        isMultipleBindingInFile: Boolean,
+        hasMultipleBindingsInFile: Boolean,
     ): String {
         val idCamelCase = xml.text
             .removeSurrounding("\"")
@@ -43,7 +43,7 @@ sealed class AndroidViewContainer {
             .toCamelCase()
             .decapitalize()
 
-        val prefix = if (!isMultipleBindingInFile) {
+        val prefix = if (!hasMultipleBindingsInFile) {
             when {
                 isNeedBindingPrefix -> "binding."
                 else -> ""
