@@ -71,6 +71,16 @@ fun String.toViewDelegatePropertyFormat(
     }
 }
 
+fun String.toViewPropertyFormat(
+    hasMultipleBindingsInFile: Boolean = true,
+): String {
+    return if (hasMultipleBindingsInFile) {
+        "private val ${this.decapitalize()} = $this.inflate(LayoutInflater.from(context), this)"
+    } else {
+        "private val binding = $this.inflate(LayoutInflater.from(context), this)"
+    }
+}
+
 fun String.toActivityPropertyFormat(
     hasMultipleBindingsInFile: Boolean = true,
 ): String {

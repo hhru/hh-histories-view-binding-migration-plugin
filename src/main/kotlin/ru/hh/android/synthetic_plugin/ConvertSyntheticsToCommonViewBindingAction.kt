@@ -29,7 +29,8 @@ import ru.hh.android.synthetic_plugin.extensions.androidFacet
  *
  * For Views:
  *
- *      TODO Not implemented: manually changes because of rare cases
+ *      Declaration:
+ *      "private val binding = SomeViewBinding.inflate(LayoutInflater.from(context), this)"
  */
 class ConvertSyntheticsToCommonViewBindingAction : AnAction() {
 

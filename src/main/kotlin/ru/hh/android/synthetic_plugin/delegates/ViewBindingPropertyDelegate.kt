@@ -9,11 +9,14 @@ import com.intellij.psi.codeStyle.CodeStyleManager
 import org.jetbrains.android.facet.AndroidFacet
 import org.jetbrains.kotlin.asJava.elements.KtLightElement
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.allChildren
 import org.jetbrains.kotlin.resolve.ImportPath
 import ru.hh.android.synthetic_plugin.extensions.*
 import ru.hh.android.synthetic_plugin.utils.ClassParentsFinder
 import ru.hh.android.synthetic_plugin.utils.Const
+import ru.hh.android.synthetic_plugin.utils.Const.LAYOUT_INFLATER_PREFIX
 import ru.hh.android.synthetic_plugin.utils.Const.ON_DESTROY_FUNC_DECLARATION
+import ru.hh.android.synthetic_plugin.utils.Const.VIEW_INFLATER_PREFIX
 
 
 /**
@@ -166,13 +169,13 @@ class ViewBindingPropertyDelegate(
                 )
             }
         } else {
-            // TODO("Need to do manually initialization or use ViewBindingPropertyDelegate")
             importDirectives.forEach { bindingClassName ->
-                val text = bindingClassName.toMutablePropertyFormat(hasMultipleBindingsInFile)
+                val text = bindingClassName.toViewPropertyFormat(hasMultipleBindingsInFile)
                 val viewBindingDeclaration = psiFactory.createProperty(text)
 
                 tryToAddAfterCompanionObject(body, viewBindingDeclaration)
             }
+            tryToRemoveExistingViewInflaters(body)
         }
     }
 
@@ -253,6 +256,18 @@ class ViewBindingPropertyDelegate(
             val viewBindingDeclaration = psiFactory.createExpression(text)
             viewBindingDeclaration.add(getNewLine())
             it.addAfter(viewBindingDeclaration, it.bodyBlockExpression?.lBrace)
+        }
+    }
+
+    private fun tryToRemoveExistingViewInflaters(
+        body: KtClassBody,
+    ) {
+        body.declarations.filterIsInstance<KtClassInitializer>().forEach {
+            val viewInflaters = it.body?.children?.find { element ->
+                element.text.contains(LAYOUT_INFLATER_PREFIX)
+                        || element.text.contains(VIEW_INFLATER_PREFIX)
+            }
+            viewInflaters?.delete()
         }
     }
 
