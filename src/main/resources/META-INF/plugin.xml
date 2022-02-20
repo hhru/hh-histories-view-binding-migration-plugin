@@ -25,4 +25,8 @@
         </action>
     </actions>
 
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="HH Synthetic Notification Group" displayType="BALLOON" key="notification.group.name"/>
+    </extensions>
+
 </idea-plugin>

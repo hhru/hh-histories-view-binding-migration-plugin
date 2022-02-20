@@ -8,8 +8,9 @@ import com.intellij.psi.PsiDocumentManager
 import org.jetbrains.kotlin.idea.util.application.executeWriteCommand
 import org.jetbrains.kotlin.psi.KtFile
 import ru.hh.android.synthetic_plugin.delegates.ConvertKtFileDelegate
-import ru.hh.android.synthetic_plugin.extensions.haveSyntheticImports
 import ru.hh.android.synthetic_plugin.extensions.androidFacet
+import ru.hh.android.synthetic_plugin.extensions.haveSyntheticImports
+import ru.hh.android.synthetic_plugin.model.ProjectInfo
 
 /**
  * TODO:
@@ -23,7 +24,7 @@ import ru.hh.android.synthetic_plugin.extensions.androidFacet
 class ConvertSyntheticsToViewBindingPropertyDelegateAction : AnAction() {
 
     private companion object {
-        const val COMMAND_NAME = "ConvertSyntheticsToViewBindingCommand"
+        const val COMMAND_NAME = "ConvertSyntheticsToViewBindingPropertyDelegateCommand"
     }
 
     override fun update(e: AnActionEvent) {
@@ -42,18 +43,15 @@ class ConvertSyntheticsToViewBindingPropertyDelegateAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val file = e.getData(CommonDataKeys.PSI_FILE) as KtFile
         val project = e.project as Project
+        val projectInfo = ProjectInfo(file, project, e.androidFacet())
 
         PsiDocumentManager.getInstance(project).commitAllDocuments()
 
         project.executeWriteCommand(COMMAND_NAME) {
             ConvertKtFileDelegate.perform(
-                file,
-                project,
-                e.androidFacet(),
+                projectInfo = projectInfo,
                 isUsingViewBindingPropertyDelegate = true,
             )
         }
-
-        println("ConvertSyntheticsToViewBindingAction finished successfully")
     }
 }

@@ -6,6 +6,7 @@ object Const {
     const val CELL_WITH_VIEW_HOLDER = "with(viewHolder.itemView)"
     const val LAYOUT_INFLATER_PREFIX = "LayoutInflater.from"
     const val VIEW_INFLATER_PREFIX = "View.inflate"
+    const val NOTIFICATIONS_ID = "ru.hh.android.synthetic_plugin"
 
     const val ON_DESTROY_FUNC_DECLARATION = """
     override fun onDestroyView() {

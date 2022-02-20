@@ -1,11 +1,10 @@
 package ru.hh.android.synthetic_plugin.delegates
 
-import com.intellij.openapi.project.Project
-import org.jetbrains.android.facet.AndroidFacet
-import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtImportDirective
 import org.jetbrains.kotlin.psi.KtPsiFactory
+import ru.hh.android.synthetic_plugin.extensions.notifyInfo
 import ru.hh.android.synthetic_plugin.model.AndroidViewContainer
+import ru.hh.android.synthetic_plugin.model.ProjectInfo
 import ru.hh.android.synthetic_plugin.visitor.AndroidViewXmlSyntheticsRefsVisitor
 import ru.hh.android.synthetic_plugin.visitor.SyntheticsImportsVisitor
 
@@ -16,35 +15,44 @@ object ConvertKtFileDelegate {
      * because this method modify your codebase.
      */
     fun perform(
-        file: KtFile,
-        project: Project,
-        androidFacet: AndroidFacet?,
-        psiFactory: KtPsiFactory = KtPsiFactory(project),
+        projectInfo: ProjectInfo,
         isUsingViewBindingPropertyDelegate: Boolean = false,
     ) {
         val xmlRefsVisitor = AndroidViewXmlSyntheticsRefsVisitor()
         val importsVisitor = SyntheticsImportsVisitor()
-        file.accept(xmlRefsVisitor)
-        file.accept(importsVisitor)
+        projectInfo.file.accept(xmlRefsVisitor)
+        projectInfo.file.accept(importsVisitor)
         val xmlViewRefs = xmlRefsVisitor.getResult()
         val syntheticImports = importsVisitor.getResult()
-        val viewBindingPropertyDelegate = ViewBindingPropertyDelegate(
-            psiFactory = psiFactory,
-            file = file,
-            androidFacet = androidFacet,
-            isUsingViewBindingPropertyDelegate = isUsingViewBindingPropertyDelegate,
-            project = project,
+        val viewBindingProvider = getViewBindingProvider(projectInfo, isUsingViewBindingPropertyDelegate)
+
+        val viewBindingDelegate = ViewBindingDelegate(
+            projectInfo = projectInfo,
+            viewBindingProvider = viewBindingProvider,
         )
-        viewBindingPropertyDelegate.addViewBindingProperties()
+
+        viewBindingDelegate.addViewBindingProperties()
         replaceSynthCallsToViews(
-            psiFactory = psiFactory,
+            psiFactory = projectInfo.psiFactory,
             xmlViewRefs = xmlViewRefs,
-            viewBindingProperties = viewBindingPropertyDelegate.syntheticImportDirectives,
-            hasMultipleBindingsInFile = viewBindingPropertyDelegate.hasMultipleBindingsInFile,
+            viewBindingProperties = viewBindingProvider.syntheticImportDirectives,
+            hasMultipleBindingsInFile = viewBindingProvider.hasMultipleBindingsInFile,
         )
         removeKotlinxSyntheticsImports(syntheticImports)
 
-        println("Converted synthetics to view binding for ${file.name} successfully")
+        projectInfo.project.notifyInfo("File ${projectInfo.file.name} converted successfully!")
+    }
+
+    private fun getViewBindingProvider(
+        projectInfo: ProjectInfo,
+        isUsingViewBindingPropertyDelegate: Boolean,
+    ) = when {
+        isUsingViewBindingPropertyDelegate -> {
+            ViewBindingPropertyDelegateImpl(projectInfo)
+        }
+        else -> {
+            CommonViewBindingImpl(projectInfo)
+        }
     }
 
     private fun replaceSynthCallsToViews(
