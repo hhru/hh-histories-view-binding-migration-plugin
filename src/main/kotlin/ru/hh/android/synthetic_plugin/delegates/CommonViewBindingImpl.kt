@@ -1,5 +1,6 @@
 package ru.hh.android.synthetic_plugin.delegates
 
+import org.jetbrains.kotlin.idea.intentions.isZero
 import org.jetbrains.kotlin.psi.*
 import ru.hh.android.synthetic_plugin.extensions.*
 import ru.hh.android.synthetic_plugin.model.ProjectInfo
@@ -88,6 +89,12 @@ class CommonViewBindingImpl(
             val viewInflaters = it.body?.children?.find { element ->
                 element.text.contains(Const.LAYOUT_INFLATER_PREFIX)
                         || element.text.contains(Const.VIEW_INFLATER_PREFIX)
+            }
+
+            // Remove whole init block if it has only one view inflater children
+            if (viewInflaters != null && it.body?.children?.size == 1) {
+                it.delete()
+                return
             }
             viewInflaters?.delete()
         }

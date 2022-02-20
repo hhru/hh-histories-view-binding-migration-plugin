@@ -16,6 +16,7 @@
                 text="Convert Synthetics to Common ViewBinding"
                 description="Converts kotlin.synthetics usage to Android ViewBinding">
             <add-to-group group-id="RefactoringMenu" anchor="last" />
+            <add-to-group group-id="UsageView.Popup" anchor="first" />
         </action>
         <action id="ConvertSyntheticsToViewBinding"
             class="ru.hh.android.synthetic_plugin.ConvertSyntheticsToViewBindingPropertyDelegateAction"
