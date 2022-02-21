@@ -1,7 +1,9 @@
 package ru.hh.android.synthetic_plugin.delegates
 
-import org.jetbrains.kotlin.idea.intentions.isZero
-import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassBody
+import org.jetbrains.kotlin.psi.KtClassInitializer
+import org.jetbrains.kotlin.psi.getOrCreateBody
 import ru.hh.android.synthetic_plugin.extensions.*
 import ru.hh.android.synthetic_plugin.model.ProjectInfo
 import ru.hh.android.synthetic_plugin.utils.Const
@@ -19,6 +21,7 @@ class CommonViewBindingImpl(
 
             tryToAddAfterCompanionObject(body, viewBindingDeclaration)
         }
+        replaceContentViewExpression(body)
     }
 
     override fun processFragment(ktClass: KtClass) {
@@ -97,6 +100,22 @@ class CommonViewBindingImpl(
                 return
             }
             viewInflaters?.delete()
+        }
+    }
+
+    /**
+     * Replace existing setContentView() with proper binding in Activities
+     */
+    private fun replaceContentViewExpression(body: KtClassBody) {
+        body.functions.find { it.name == "onCreate" }?.let {
+            it.bodyBlockExpression?.children?.find { element ->
+                element.text.contains(Const.SET_CONTENT_VIEW_PREFIX)
+            }?.let { setContentViewFun ->
+                val layoutName = setContentViewFun.text.getLayoutNameFromContentView()
+                val contentViewTextFun = getContentViewBindingForActivity(layoutName).toActivityContentViewFormat()
+                val contentViewBindingExpression = projectInfo.psiFactory.createExpression(contentViewTextFun)
+                setContentViewFun.replace(contentViewBindingExpression)
+            }
         }
     }
 }

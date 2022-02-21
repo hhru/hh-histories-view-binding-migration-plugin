@@ -2,6 +2,7 @@ package ru.hh.android.synthetic_plugin.extensions
 
 import android.databinding.tool.ext.toCamelCase
 import ru.hh.android.synthetic_plugin.utils.Const
+import ru.hh.android.synthetic_plugin.utils.Const.SET_CONTENT_VIEW_PREFIX
 
 fun String?.isKotlinSynthetic(): Boolean {
     return this?.startsWith(Const.KOTLINX_SYNTHETIC) == true
@@ -45,9 +46,9 @@ fun String.toImmutablePropertyFormat(
     hasMultipleBindingsInFile: Boolean = true,
 ): String {
     return if (hasMultipleBindingsInFile) {
-        "private val ${this.decapitalize()}: $this get() = _${this.decapitalize()}"
+        "private val ${this.decapitalize()}: $this get() = _${this.decapitalize()}!!"
     } else {
-        "private val binding: $this get() = _binding"
+        "private val binding: $this get() = _binding!!"
     }
 }
 
@@ -75,9 +76,9 @@ fun String.toViewPropertyFormat(
     hasMultipleBindingsInFile: Boolean = true,
 ): String {
     return if (hasMultipleBindingsInFile) {
-        "private val ${this.decapitalize()} = $this.inflate(LayoutInflater.from(context), this)"
+        "private val ${this.decapitalize()} = $this.inflate(LayoutInflater.from(context), this, false)"
     } else {
-        "private val binding = $this.inflate(LayoutInflater.from(context), this)"
+        "private val binding = $this.inflate(LayoutInflater.from(context), this, false)"
     }
 }
 
@@ -89,6 +90,17 @@ fun String.toActivityPropertyFormat(
     } else {
         "private val binding by lazy { ${this}.inflate(layoutInflater) }"
     }
+}
+
+fun String.toActivityContentViewFormat(): String {
+    return "$SET_CONTENT_VIEW_PREFIX(${this}.root)"
+}
+
+/**
+ * Returns in format "setContentView(R.layout.layout_name)" -> "layout_name"
+ */
+fun String.getLayoutNameFromContentView(): String {
+    return this.substringAfterLast('.').removeSuffix(")")
 }
 
 fun String.toFragmentInitializationFormat(

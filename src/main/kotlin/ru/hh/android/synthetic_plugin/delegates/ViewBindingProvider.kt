@@ -9,10 +9,7 @@ import org.jetbrains.kotlin.psi.KtClassBody
 import org.jetbrains.kotlin.psi.KtObjectDeclaration
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.resolve.ImportPath
-import ru.hh.android.synthetic_plugin.extensions.getPackageName
-import ru.hh.android.synthetic_plugin.extensions.isKotlinSynthetic
-import ru.hh.android.synthetic_plugin.extensions.toFormattedBindingName
-import ru.hh.android.synthetic_plugin.extensions.toFormattedDirective
+import ru.hh.android.synthetic_plugin.extensions.*
 import ru.hh.android.synthetic_plugin.model.ProjectInfo
 
 abstract class ViewBindingProvider(val projectInfo: ProjectInfo) {
@@ -28,7 +25,8 @@ abstract class ViewBindingProvider(val projectInfo: ProjectInfo) {
     /**
      * Return non-formatted list of import synthetic directories
      */
-    val syntheticImportDirectives = projectInfo.file.importDirectives.filter { it.importPath?.pathStr.isKotlinSynthetic() }
+    val syntheticImportDirectives =
+        projectInfo.file.importDirectives.filter { it.importPath?.pathStr.isKotlinSynthetic() }
 
     /**
      * Support for multiple binding in single .kt file
@@ -112,5 +110,21 @@ abstract class ViewBindingProvider(val projectInfo: ProjectInfo) {
     fun formatCode(ktClass: KtClass) {
         val codeStyleManager: CodeStyleManager = CodeStyleManager.getInstance(projectInfo.project)
         codeStyleManager.reformat(ktClass)
+    }
+
+    /**
+     * Returns proper binding name for setContentView() in Activities
+     * or returns default "binding" if no name was found or there is
+     * only one import exists in file
+     */
+    fun getContentViewBindingForActivity(layoutName: String): String {
+        return if (hasMultipleBindingsInFile) {
+            syntheticImportDirectives.find { it.importPath?.pathStr?.contains(layoutName) == true }
+                ?.toFormattedDirective()
+                ?.toFormattedBindingName()
+                ?.decapitalize() ?: "binding"
+        } else {
+            "binding"
+        }
     }
 }
