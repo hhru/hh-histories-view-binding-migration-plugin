@@ -16,16 +16,13 @@ import ru.hh.android.synthetic_plugin.utils.ClassParentsFinder
  */
 class ViewBindingDelegate(
     private val projectInfo: ProjectInfo,
-    private val viewBindingProvider: ViewBindingProvider
+    private val viewBindingPsiProcessor: ViewBindingPsiProcessor
 ) {
 
     private companion object {
         const val ANDROID_ACTIVITY_CLASS = "android.app.Activity"
         const val ANDROID_FRAGMENT_CLASS = "androidx.fragment.app.Fragment"
         const val ANDROID_VIEW_CLASS = "android.view.View"
-
-        // Cells in hh.ru - wrapper for reducing boilerplate in delegates for RecyclerView
-        const val HH_CELL_INTERFACE = "ru.hh.shared.core.ui.cells_framework.cells.interfaces.Cell"
     }
 
     fun addViewBindingProperties() {
@@ -43,14 +40,14 @@ class ViewBindingDelegate(
         classes.forEach { (psiClass, ktClass) ->
             val parents = ClassParentsFinder(psiClass)
             when {
-                parents.isChildOf(ANDROID_ACTIVITY_CLASS) -> viewBindingProvider.processActivity(ktClass)
-                parents.isChildOf(ANDROID_FRAGMENT_CLASS) -> viewBindingProvider.processFragment(ktClass)
-                parents.isChildOf(ANDROID_VIEW_CLASS) -> viewBindingProvider.processView(ktClass)
-                parents.isChildOf(HH_CELL_INTERFACE) -> viewBindingProvider.processCell(ktClass)
+                parents.isChildOf(ANDROID_ACTIVITY_CLASS) -> viewBindingPsiProcessor.processActivity(ktClass)
+                parents.isChildOf(ANDROID_FRAGMENT_CLASS) -> viewBindingPsiProcessor.processFragment(ktClass)
+                parents.isChildOf(ANDROID_VIEW_CLASS) -> viewBindingPsiProcessor.processView(ktClass)
+                viewBindingPsiProcessor.canHandle(parents, ktClass) -> viewBindingPsiProcessor.processCustomCases(parents, ktClass)
                 else -> projectInfo.project.notifyError("Can't add ViewBinding property to class: ${psiClass.qualifiedName}")
             }
-            viewBindingProvider.addViewBindingImports(ktClass)
-            viewBindingProvider.formatCode(ktClass)
+            viewBindingPsiProcessor.addViewBindingImports(ktClass)
+            viewBindingPsiProcessor.formatCode(ktClass)
         }
     }
 }

@@ -11,6 +11,7 @@ fun Project.notifyInfo(content: String) {
         .createNotification(content, NotificationType.INFORMATION)
         .notify(this)
 }
+
 fun Project.notifyError(content: String) {
     NotificationGroupManager
         .getInstance()

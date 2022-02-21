@@ -6,11 +6,12 @@ import org.jetbrains.kotlin.psi.KtClassInitializer
 import org.jetbrains.kotlin.psi.getOrCreateBody
 import ru.hh.android.synthetic_plugin.extensions.*
 import ru.hh.android.synthetic_plugin.model.ProjectInfo
+import ru.hh.android.synthetic_plugin.utils.ClassParentsFinder
 import ru.hh.android.synthetic_plugin.utils.Const
 
-class CommonViewBindingImpl(
+class CommonViewBindingPsiProcessor(
     projectInfo: ProjectInfo,
-) : ViewBindingProvider(
+) : ViewBindingPsiProcessor(
     projectInfo,
 ) {
     override fun processActivity(ktClass: KtClass) {
@@ -50,7 +51,9 @@ class CommonViewBindingImpl(
         tryToRemoveExistingViewInflaters(body)
     }
 
-    override fun processCell(ktClass: KtClass) = Unit
+    override fun canHandle(parents: ClassParentsFinder, ktClass: KtClass) = false
+
+    override fun processCustomCases(parents: ClassParentsFinder, ktClass: KtClass) = Unit
 
     private fun addBindingInitializationForFragment(
         body: KtClassBody,

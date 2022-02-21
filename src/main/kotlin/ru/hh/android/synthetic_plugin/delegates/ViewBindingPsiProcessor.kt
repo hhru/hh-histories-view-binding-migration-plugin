@@ -11,8 +11,9 @@ import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.kotlin.resolve.ImportPath
 import ru.hh.android.synthetic_plugin.extensions.*
 import ru.hh.android.synthetic_plugin.model.ProjectInfo
+import ru.hh.android.synthetic_plugin.utils.ClassParentsFinder
 
-abstract class ViewBindingProvider(val projectInfo: ProjectInfo) {
+abstract class ViewBindingPsiProcessor(protected val projectInfo: ProjectInfo) {
 
     abstract fun processActivity(ktClass: KtClass)
 
@@ -20,7 +21,9 @@ abstract class ViewBindingProvider(val projectInfo: ProjectInfo) {
 
     abstract fun processView(ktClass: KtClass)
 
-    abstract fun processCell(ktClass: KtClass)
+    abstract fun canHandle(parents: ClassParentsFinder, ktClass: KtClass): Boolean
+
+    abstract fun processCustomCases(parents: ClassParentsFinder, ktClass: KtClass)
 
     /**
      * Return non-formatted list of import synthetic directories
@@ -61,23 +64,6 @@ abstract class ViewBindingProvider(val projectInfo: ProjectInfo) {
                 body.addAfter(it, body.lBrace)
             }
         }
-    }
-
-    /**
-     * Trick to add binding elements properly formatted
-     */
-    private fun findNextNonWhitespaceElement(
-        objectDeclaration: KtObjectDeclaration? = null,
-        expression: PsiElement? = null,
-    ): PsiElement? {
-        var nextPsiElement: PsiElement? = objectDeclaration?.nextSibling ?: expression?.nextSibling
-        do {
-            if (nextPsiElement is PsiWhiteSpace) {
-                nextPsiElement = nextPsiElement.nextSibling
-                continue
-            }
-            return nextPsiElement
-        } while (true)
     }
 
     fun addImports(vararg imports: String) {
@@ -126,5 +112,22 @@ abstract class ViewBindingProvider(val projectInfo: ProjectInfo) {
         } else {
             "binding"
         }
+    }
+
+    /**
+     * Trick to add binding elements properly formatted
+     */
+    private fun findNextNonWhitespaceElement(
+        objectDeclaration: KtObjectDeclaration? = null,
+        expression: PsiElement? = null,
+    ): PsiElement? {
+        var nextPsiElement: PsiElement? = objectDeclaration?.nextSibling ?: expression?.nextSibling
+        do {
+            if (nextPsiElement is PsiWhiteSpace) {
+                nextPsiElement = nextPsiElement.nextSibling
+                continue
+            }
+            return nextPsiElement
+        } while (true)
     }
 }

@@ -24,34 +24,34 @@ object ConvertKtFileDelegate {
         projectInfo.file.accept(importsVisitor)
         val xmlViewRefs = xmlRefsVisitor.getResult()
         val syntheticImports = importsVisitor.getResult()
-        val viewBindingProvider = getViewBindingProvider(projectInfo, isUsingViewBindingPropertyDelegate)
+        val viewBindingPsiProcessor = getViewBindingPsiProcessor(projectInfo, isUsingViewBindingPropertyDelegate)
 
         val viewBindingDelegate = ViewBindingDelegate(
             projectInfo = projectInfo,
-            viewBindingProvider = viewBindingProvider,
+            viewBindingPsiProcessor = viewBindingPsiProcessor,
         )
 
         viewBindingDelegate.addViewBindingProperties()
         replaceSynthCallsToViews(
             psiFactory = projectInfo.psiFactory,
             xmlViewRefs = xmlViewRefs,
-            viewBindingProperties = viewBindingProvider.syntheticImportDirectives,
-            hasMultipleBindingsInFile = viewBindingProvider.hasMultipleBindingsInFile,
+            viewBindingProperties = viewBindingPsiProcessor.syntheticImportDirectives,
+            hasMultipleBindingsInFile = viewBindingPsiProcessor.hasMultipleBindingsInFile,
         )
         removeKotlinxSyntheticsImports(syntheticImports)
 
         projectInfo.project.notifyInfo("File ${projectInfo.file.name} converted successfully!")
     }
 
-    private fun getViewBindingProvider(
+    private fun getViewBindingPsiProcessor(
         projectInfo: ProjectInfo,
         isUsingViewBindingPropertyDelegate: Boolean,
     ) = when {
         isUsingViewBindingPropertyDelegate -> {
-            ViewBindingPropertyDelegateImpl(projectInfo)
+            HHViewBindingPsiProcessor(projectInfo)
         }
         else -> {
-            CommonViewBindingImpl(projectInfo)
+            CommonViewBindingPsiProcessor(projectInfo)
         }
     }
 
