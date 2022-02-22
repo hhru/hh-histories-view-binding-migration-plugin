@@ -8,8 +8,9 @@ import com.intellij.psi.PsiDocumentManager
 import org.jetbrains.kotlin.idea.util.application.executeWriteCommand
 import org.jetbrains.kotlin.psi.KtFile
 import ru.hh.android.synthetic_plugin.delegates.ConvertKtFileDelegate
-import ru.hh.android.synthetic_plugin.extensions.haveSyntheticImports
 import ru.hh.android.synthetic_plugin.extensions.androidFacet
+import ru.hh.android.synthetic_plugin.extensions.haveSyntheticImports
+import ru.hh.android.synthetic_plugin.model.ProjectInfo
 
 /**
  * TODO:
@@ -19,14 +20,11 @@ import ru.hh.android.synthetic_plugin.extensions.androidFacet
  *
  * - [ ] Remove `id("kotlin-android-extensions")` from `plugins` block in `build.gradle` file
  * - [ ] Add `android.buildFeatures.viewBinding = true` line into `build.gradle`
- *
- * ## Limitations
- * - If you have several imports with synthetics, this Action will not work.
  */
-class ConvertSyntheticsToViewBindingAction : AnAction() {
+class ConvertSyntheticsToViewBindingPropertyDelegateAction : AnAction() {
 
     private companion object {
-        const val COMMAND_NAME = "ConvertSyntheticsToViewBindingCommand"
+        const val COMMAND_NAME = "ConvertSyntheticsToViewBindingPropertyDelegateCommand"
     }
 
     override fun update(e: AnActionEvent) {
@@ -45,13 +43,15 @@ class ConvertSyntheticsToViewBindingAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val file = e.getData(CommonDataKeys.PSI_FILE) as KtFile
         val project = e.project as Project
+        val projectInfo = ProjectInfo(file, project, e.androidFacet())
 
         PsiDocumentManager.getInstance(project).commitAllDocuments()
 
         project.executeWriteCommand(COMMAND_NAME) {
-            ConvertKtFileDelegate.perform(file, project, e.androidFacet())
+            ConvertKtFileDelegate.perform(
+                projectInfo = projectInfo,
+                isUsingViewBindingPropertyDelegate = true,
+            )
         }
-
-        println("ConvertSyntheticsToViewBindingAction finished successfully")
     }
 }

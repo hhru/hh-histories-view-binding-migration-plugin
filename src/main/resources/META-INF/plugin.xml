@@ -10,12 +10,24 @@
     <depends>org.jetbrains.android</depends>
 
     <actions>
+
+        <action id="ConvertSyntheticsToCommonViewBinding"
+                class="ru.hh.android.synthetic_plugin.ConvertSyntheticsToCommonViewBindingAction"
+                text="Convert Synthetics to Common ViewBinding"
+                description="Converts kotlin.synthetics usage to Android ViewBinding">
+            <add-to-group group-id="RefactoringMenu" anchor="last" />
+            <add-to-group group-id="UsageView.Popup" anchor="first" />
+        </action>
         <action id="ConvertSyntheticsToViewBinding"
-            class="ru.hh.android.synthetic_plugin.ConvertSyntheticsToViewBindingAction"
-            text="Convert Synthetics to ViewBinding"
-            description="Converts kotlin.synthetics usage to Android ViewBinding">
+            class="ru.hh.android.synthetic_plugin.ConvertSyntheticsToViewBindingPropertyDelegateAction"
+            text="Convert Synthetics to ViewBindingPropertyDelegate"
+            description="Converts kotlin.synthetics usage to Android ViewBinding with usage of ViewBindingPropertyDelegate">
             <add-to-group group-id="RefactoringMenu" anchor="last" />
         </action>
     </actions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="HH Synthetic Notification Group" displayType="BALLOON" key="notification.group.name"/>
+    </extensions>
 
 </idea-plugin>
